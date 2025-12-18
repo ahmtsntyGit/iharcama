@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="iHarcama">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/240/wallet.png">
+    <title>iHarcama</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- San Francisco Font Benzeri -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #F2F2F7;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.90);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #007AFF;
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .category-btn.active {
+            background-color: #007AFF;
+            color: white;
+            border-color: #007AFF;
+        }
+
+        /* Segmented Control Styles */
+        .segment-btn {
+            color: #636366;
+            transition: all 0.2s ease;
+        }
+        .segment-btn.active {
+            background-color: white;
+            color: black;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header / Filtreler / Toplam -->
+    <header class="glass fixed top-0 w-full z-20 pb-4">
+        <!-- Üst Başlık -->
+        <div class="pt-12 px-6 flex justify-between items-center mb-2">
+            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Harcamalar</h1>
+            <div class="flex items-center gap-4">
+                <!-- Paylaş Butonu Eklendi -->
+                <button onclick="shareApp()" class="text-blue-600 hover:text-blue-700 active:scale-90 transition-transform" title="Uygulamayı Paylaş">
+                    <i class="fa-solid fa-arrow-up-from-bracket text-xl"></i>
+                </button>
+                <button onclick="clearAllData()" class="text-red-500 text-sm font-medium hover:text-red-600">Sıfırla</button>
+            </div>
+        </div>
+
+        <!-- Toplam Kartı -->
+        <div class="px-6 mb-4">
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+                <div>
+                    <p id="total-label" class="text-gray-500 text-xs uppercase font-semibold tracking-wider">BU AY TOPLAM</p>
+                    <p id="total-amount" class="text-3xl font-bold text-gray-900 mt-1">₺0,00</p>
+                </div>
+                <div class="h-10 w-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+                    <i class="fa-solid fa-wallet text-lg"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- iOS Segmented Control (Filtreler) -->
+        <div class="px-6">
+            <div class="bg-gray-200/80 p-1 rounded-lg flex text-sm font-medium">
+                <button onclick="setFilter('day', this)" class="segment-btn flex-1 py-1.5 rounded-md text-center">Gün</button>
+                <button onclick="setFilter('week', this)" class="segment-btn flex-1 py-1.5 rounded-md text-center">Hafta</button>
+                <button onclick="setFilter('month', this)" class="segment-btn active flex-1 py-1.5 rounded-md text-center">Ay</button>
+                <button onclick="setFilter('all', this)" class="segment-btn flex-1 py-1.5 rounded-md text-center">Tümü</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Harcama Listesi (Scroll Area) -->
+    <!-- pt- değerini artırdım çünkü header uzadı -->
+    <main class="flex-1 overflow-y-auto no-scrollbar pt-64 pb-60 px-4" id="expense-list">
+        <!-- Harcamalar buraya JS ile eklenecek -->
+        <div id="empty-state" class="flex flex-col items-center justify-center h-48 text-gray-400 mt-4">
+            <i class="fa-solid fa-filter text-4xl mb-3 opacity-20"></i>
+            <p class="text-sm font-medium">Bu dönemde harcama yok</p>
+        </div>
+    </main>
+
+    <!-- Yeni Harcama Ekleme Formu -->
+    <div class="fixed bottom-0 w-full bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-30" id="add-panel">
+        <div class="p-6">
+            <div class="flex justify-center mb-4">
+                <div class="w-12 h-1.5 bg-gray-200 rounded-full"></div>
+            </div>
+            
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">Yeni Harcama</h2>
+
+            <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="col-span-1">
+                    <input type="number" id="amount-input" placeholder="Tutar" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 font-semibold focus:bg-white transition-all placeholder-gray-400">
+                </div>
+                <div class="col-span-2">
+                    <input type="text" id="desc-input" placeholder="Açıklama" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:bg-white transition-all placeholder-gray-400">
+                </div>
+            </div>
+
+            <div class="flex gap-2 overflow-x-auto no-scrollbar mb-5 pb-2">
+                <button onclick="selectCategory('market', this)" class="category-btn active flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-medium whitespace-nowrap transition-all">
+                    <i class="fa-solid fa-basket-shopping"></i> Market
+                </button>
+                <button onclick="selectCategory('ulasim', this)" class="category-btn flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-medium whitespace-nowrap transition-all">
+                    <i class="fa-solid fa-bus"></i> Ulaşım
+                </button>
+                <button onclick="selectCategory('yemek', this)" class="category-btn flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-medium whitespace-nowrap transition-all">
+                    <i class="fa-solid fa-utensils"></i> Yemek
+                </button>
+                <button onclick="selectCategory('eglence', this)" class="category-btn flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-medium whitespace-nowrap transition-all">
+                    <i class="fa-solid fa-film"></i> Eğlence
+                </button>
+                <button onclick="selectCategory('diger', this)" class="category-btn flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-medium whitespace-nowrap transition-all">
+                    <i class="fa-solid fa-tag"></i> Diğer
+                </button>
+            </div>
+
+            <button onclick="addExpense()" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-blue-200 transition-all flex justify-center items-center gap-2">
+                <i class="fa-solid fa-plus"></i> Harcama Ekle
+            </button>
+        </div>
+        <div class="h-6 bg-white w-full"></div>
+    </div>
+
+    <script>
+        let expenses = JSON.parse(localStorage.getItem('myExpenses')) || [];
+        let currentCategory = 'market';
+        let currentFilter = 'month'; // Varsayılan olarak Ay görünümü
+
+        const categoryConfig = {
+            'market': { icon: 'fa-basket-shopping', color: 'bg-orange-100 text-orange-600', label: 'Market' },
+            'ulasim': { icon: 'fa-bus', color: 'bg-blue-100 text-blue-600', label: 'Ulaşım' },
+            'yemek': { icon: 'fa-utensils', color: 'bg-green-100 text-green-600', label: 'Yemek' },
+            'eglence': { icon: 'fa-film', color: 'bg-purple-100 text-purple-600', label: 'Eğlence' },
+            'diger': { icon: 'fa-tag', color: 'bg-gray-100 text-gray-600', label: 'Diğer' }
+        };
+
+        const filterLabels = {
+            'day': 'BUGÜN TOPLAM',
+            'week': 'BU HAFTA TOPLAM',
+            'month': 'BU AY TOPLAM',
+            'all': 'GENEL TOPLAM'
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderExpenses();
+        });
+
+        // Filtre Değiştirme
+        function setFilter(filterType, btn) {
+            currentFilter = filterType;
+            
+            // Görsel butonu güncelle
+            if(btn) {
+                document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+            
+            renderExpenses();
+        }
+
+        // Kategori Seçimi
+        function selectCategory(cat, btn) {
+            currentCategory = cat;
+            document.querySelectorAll('.category-btn').forEach(b => {
+                b.classList.remove('active');
+                b.classList.add('bg-white', 'text-gray-600');
+            });
+            btn.classList.add('active');
+            btn.classList.remove('bg-white', 'text-gray-600');
+        }
+
+        // Harcama Ekleme
+        function addExpense() {
+            const amountInput = document.getElementById('amount-input');
+            const descInput = document.getElementById('desc-input');
+            const amount = parseFloat(amountInput.value);
+            const desc = descInput.value.trim() || categoryConfig[currentCategory].label;
+
+            if (isNaN(amount) || amount <= 0) {
+                alert("Lütfen geçerli bir tutar girin.");
+                return;
+            }
+
+            const newExpense = {
+                id: Date.now(),
+                amount: amount,
+                category: currentCategory,
+                description: desc,
+                date: new Date().toISOString()
+            };
+
+            expenses.unshift(newExpense);
+            saveData();
+            
+            // Ekleme yapıldığında filtreyi mantıken görebileceği bir yere çekebiliriz veya olduğu yerde bırakırız.
+            // Kullanıcı kafa karışıklığı yaşamasın diye filtreyi değiştirmiyoruz ama listeyi yeniliyoruz.
+            renderExpenses();
+
+            amountInput.value = '';
+            descInput.value = '';
+            amountInput.focus();
+        }
+
+        // Tarih Yardımcıları
+        function isToday(date) {
+            const today = new Date();
+            return date.getDate() === today.getDate() &&
+                   date.getMonth() === today.getMonth() &&
+                   date.getFullYear() === today.getFullYear();
+        }
+
+        function isThisWeek(date) {
+            const now = new Date();
+            const startOfWeek = new Date(now);
+            const dayOfWeek = now.getDay() || 7; // Pazar=0 ise 7 yap
+            startOfWeek.setDate(now.getDate() - dayOfWeek + 1); // Pazartesi
+            startOfWeek.setHours(0,0,0,0);
+            return date >= startOfWeek;
+        }
+
+        function isThisMonth(date) {
+            const today = new Date();
+            return date.getMonth() === today.getMonth() &&
+                   date.getFullYear() === today.getFullYear();
+        }
+
+        // Listeleme ve Hesaplama
+        function renderExpenses() {
+            const listEl = document.getElementById('expense-list');
+            const emptyState = document.getElementById('empty-state');
+            const totalLabel = document.getElementById('total-label');
+            const totalAmount = document.getElementById('total-amount');
+
+            // Listeyi temizle (empty state kalsın şimdilik, sonra kontrol edeceğiz)
+            const items = listEl.querySelectorAll('.expense-item');
+            items.forEach(i => i.remove());
+
+            // Filtreleme
+            let filteredExpenses = expenses.filter(expense => {
+                const expenseDate = new Date(expense.date);
+                if (currentFilter === 'day') return isToday(expenseDate);
+                if (currentFilter === 'week') return isThisWeek(expenseDate);
+                if (currentFilter === 'month') return isThisMonth(expenseDate);
+                return true; // 'all'
+            });
+
+            // Toplam Hesaplama
+            const total = filteredExpenses.reduce((sum, item) => sum + item.amount, 0);
+            totalLabel.innerText = filterLabels[currentFilter];
+            totalAmount.innerText = `₺${formatMoney(total)}`;
+
+            // Ekrana Basma
+            if (filteredExpenses.length === 0) {
+                emptyState.style.display = 'flex';
+            } else {
+                emptyState.style.display = 'none';
+                
+                filteredExpenses.forEach(expense => {
+                    const conf = categoryConfig[expense.category];
+                    const dateObj = new Date(expense.date);
+                    const timeStr = dateObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                    const dateStr = dateObj.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+
+                    // Kategoriye göre tarih gösterimini biraz özelleştirebiliriz
+                    let displayDate = `${dateStr}, ${timeStr}`;
+                    if (currentFilter === 'day') displayDate = timeStr; // Sadece bugünse saat yeterli
+
+                    const itemHTML = `
+                        <div class="expense-item fade-in bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-3 flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="h-12 w-12 rounded-full ${conf.color} flex items-center justify-center text-lg shadow-sm">
+                                    <i class="fa-solid ${conf.icon}"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-800 text-sm">${expense.description}</h3>
+                                    <p class="text-xs text-gray-400 mt-0.5">${conf.label} • ${displayDate}</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="font-bold text-gray-900">-₺${formatMoney(expense.amount)}</span>
+                                <button onclick="deleteExpense(${expense.id})" class="text-xs text-red-400 mt-1 opacity-60 hover:opacity-100">Sil</button>
+                            </div>
+                        </div>
+                    `;
+                    listEl.insertAdjacentHTML('beforeend', itemHTML);
+                });
+            }
+        }
+
+        function deleteExpense(id) {
+            if(confirm('Silmek istediğine emin misin?')) {
+                expenses = expenses.filter(e => e.id !== id);
+                saveData();
+                renderExpenses();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('myExpenses', JSON.stringify(expenses));
+        }
+
+        function clearAllData() {
+            if(confirm("Tüm kayıtları silmek üzeresin. Emin misin?")) {
+                expenses = [];
+                saveData();
+                renderExpenses();
+            }
+        }
+
+        // Yeni Eklenen Paylaşım Fonksiyonu
+        async function shareApp() {
+            const url = window.location.href;
+            const title = 'iHarcama';
+            
+            // 1. Yöntem: Mobil Paylaşım Menüsü (Native Share)
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: title,
+                        text: 'Harcamalarımı takip ettiğim uygulamam: iHarcama',
+                        url: url
+                    });
+                    return; // Başarılıysa çık
+                } catch (err) {
+                    // Kullanıcı iptal ettiyse veya hata varsa devam et (fallback)
+                    console.log('Native paylaşım yapılamadı.');
+                }
+            }
+
+            // 2. Yöntem: Panoya Kopyala
+            try {
+                // Clipboard API bazen iframe içinde izin gerektirir, basit fallback de ekleyelim
+                await navigator.clipboard.writeText(url);
+                alert('Link kopyalandı! 📋\n\nŞimdi bunu kendine (WhatsApp, Mail vb.) yapıştırıp telefonunda açabilirsin.');
+            } catch (err) {
+                // 3. Yöntem: Manuel Kopyalama için Prompt
+                prompt("Lütfen bu linki kopyala ve telefonuna gönder:", url);
+            }
+        }
+
+        function formatMoney(amount) {
+            return amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+    </script>
+</body>
+</html>
